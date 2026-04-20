@@ -1,0 +1,71 @@
+{
+  "main": {
+    "id": "root",
+    "type": "split",
+    "children": [
+      {
+        "id": "left-pane",
+        "type": "tabs",
+        "children": [
+          {
+            "id": "file-explorer",
+            "type": "leaf",
+            "state": {
+              "type": "file-explorer",
+              "state": {}
+            }
+          }
+        ]
+      },
+      {
+        "id": "center-pane",
+        "type": "tabs",
+        "children": [
+          {
+            "id": "index-tab",
+            "type": "leaf",
+            "state": {
+              "type": "markdown",
+              "state": {
+                "file": "00_index.md",
+                "mode": "preview"
+              }
+            }
+          }
+        ]
+      },
+      {
+        "id": "right-pane",
+        "type": "tabs",
+        "children": [
+          {
+            "id": "graph-tab",
+            "type": "leaf",
+            "state": {
+              "type": "graph",
+              "state": {}
+            }
+          },
+          {
+            "id": "backlinks-tab",
+            "type": "leaf",
+            "state": {
+              "type": "backlink",
+              "state": {
+                "file": "00_index.md"
+              }
+            }
+          }
+        ]
+      }
+    ],
+    "direction": "horizontal"
+  },
+  "active": "index-tab",
+  "lastOpenFiles": [
+    "00_index.md",
+    "01_user_profile.md",
+    "02_patterns.md",
+    "03_projects_registry.md"
+  ]
+}

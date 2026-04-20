@@ -1,0 +1,31 @@
+{
+  "hooks": {
+    "PostToolUse": [
+      {
+        "matcher": "Write|Edit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "nohup python3 ${CLAUDE_PLUGIN_ROOT}/scripts/render_graph.py --workspace ${CLAUDE_WORKSPACE:-.} --if-changed >/dev/null 2>&1 & disown",
+            "timeout": 5
+          },
+          {
+            "type": "command",
+            "command": "nohup python3 ${CLAUDE_PLUGIN_ROOT}/scripts/render_backlinks.py --workspace ${CLAUDE_WORKSPACE:-.} --if-changed >/dev/null 2>&1 & disown",
+            "timeout": 5
+          },
+          {
+            "type": "command",
+            "command": "python3 ${CLAUDE_PLUGIN_ROOT}/scripts/run_detector.py --workspace ${CLAUDE_WORKSPACE:-.} --incremental --if-changed",
+            "timeout": 15
+          },
+          {
+            "type": "command",
+            "command": "python3 ${CLAUDE_PLUGIN_ROOT}/scripts/trigger_reflect_on_tasks.py --workspace ${CLAUDE_WORKSPACE:-.} --debounce 5",
+            "timeout": 10
+          }
+        ]
+      }
+    ]
+  }
+}

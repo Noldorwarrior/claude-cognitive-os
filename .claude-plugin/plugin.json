@@ -1,0 +1,23 @@
+{
+  "name": "claude-cognitive-os",
+  "version": "1.3.3",
+  "description": "Когнитивная операционная система для Claude: структурированная память проектов, автоматическое извлечение паттернов из диалогов, визуальный граф связей, автокалибровка порогов, self-reflection и интеграция с Obsidian. Эволюция skill cognitive-os v1.0.1 в полноценный плагин.",
+  "author": {
+    "name": "rakhman",
+    "email": "noldorwarrrior@gmail.com"
+  },
+  "keywords": [
+    "cognitive",
+    "memory",
+    "knowledge-management",
+    "obsidian",
+    "graph",
+    "backlinks",
+    "patterns",
+    "self-reflection",
+    "verification",
+    "calibration",
+    "russian"
+  ],
+  "license": "MIT"
+}

@@ -1,0 +1,35 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.egg-info/
+.pytest_cache/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# IDE
+.vscode/
+.idea/
+
+# Obsidian workspace files (если плагин попадёт в vault)
+.obsidian/workspace.json
+.obsidian/workspace-mobile.json
+.obsidian/workspaces.json
+
+# Генерируемые артефакты проектов (для starter_workspace)
+examples/starter_workspace/_generated/
+
+# Локальные настройки калибровки (пер-пользовательские)
+*.calibration.local.yaml
+
+# Build артефакты плагина
+*.plugin.zip
+*.plugin
+build/
+dist/
+
+# Временные артефакты песочницы Cowork (не удаляются из-за mount-ограничений)
+test_rm.tmp
+test_rm.*.tmp
