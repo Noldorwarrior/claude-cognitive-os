@@ -5,6 +5,20 @@
 Формат: [Keep a Changelog](https://keepachangelog.com/ru/1.1.0/).
 Версионирование: [SemVer](https://semver.org/lang/ru/).
 
+## [1.3.4] — 2026-04-21
+
+### Added
+
+- **Два новых ID-префикса в `render_graph.py`**: `insight-NNN` (amber `#F39C12` — озарение) и `insurance-NNN` (dark teal `#16A085` — защита). Граф теперь покрывает все 15 префиксов воркспейса (было 13). Согласованно правлены три места: `ID_PATTERNS` dict, `NODE_COLORS` dict и HTML groups JS-literal в `render_html()`. Это финализация Track A, который висел в working copy после релиза v1.3.3.
+
+### Fixed
+
+- **Детерминизм `render_graph.py`**: итерация по `set[str]` в `build_graph()` заменена на `sorted(...)` в трёх местах — обход `extract_ids(content)` при сборке узлов, обход `source_ids` при сборке wikilink-рёбер и обход `projects_dir.rglob("*.md")`. До фикса порядок узлов и рёбер в `_generated/graph.html` и `_generated/graph.mermaid` зависел от `PYTHONHASHSEED` (рандомизируется между процессами Python по умолчанию). Счётчики и содержимое всегда были корректны (161 узел / 6129 рёбер стабильно), но SHA256 файлов менялся от запуска к запуску — это ломало любые downstream-проверки на «изменился ли граф». После фикса SHA256 идентичен между 6 прогонами (3 с дефолтным random seed + 3 с явными `PYTHONHASHSEED=42/137/2026`).
+
+### Rationale
+
+Track A нужно было довыпустить, чтобы граф не молчаливо игнорировал `insight-NNN` и `insurance-NNN`-узлы. Детерминизм рендера снимает класс ложноположительных «изменений» в графе, что особенно важно для будущих hooks/CI-сверок и для корректной работы скилла [[backlinks]] через `render_graph.py`.
+
 ## [1.3.3] — 2026-04-21
 
 ### Added

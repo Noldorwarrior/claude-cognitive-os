@@ -43,6 +43,8 @@ ID_PATTERNS = {
     "cluster": re.compile(r"\bcluster-\d{3}\b"),
     "reflection": re.compile(r"\bsr-\d{3}\b"),
     "audit": re.compile(r"\baudit-\d{3}\b"),
+    "insight": re.compile(r"\binsight-\d{3}\b"),
+    "insurance": re.compile(r"\binsurance-\d{3}\b"),
 }
 
 # Цвета узлов по типу (соответствуют SKILL.md графа)
@@ -60,6 +62,8 @@ NODE_COLORS = {
     "cluster": "#9B59B6",
     "reflection": "#BDC3C7",
     "audit": "#C0392B",
+    "insight": "#F39C12",
+    "insurance": "#16A085",
 }
 
 WIKILINK_RE = re.compile(r"\[\[([^\]\|#]+)(?:#([^\]\|]+))?(?:\|[^\]]+)?\]\]")
@@ -156,7 +160,7 @@ def build_graph(workspace: Path, filters: dict[str, Any]) -> GraphData:
     # Добавляем проектные папки
     projects_dir = workspace / "projects"
     if projects_dir.exists():
-        for pfile in projects_dir.rglob("*.md"):
+        for pfile in sorted(projects_dir.rglob("*.md")):
             md_files.append(pfile)
 
     # 1. Сбор всех узлов по ID из всех файлов
@@ -165,7 +169,7 @@ def build_graph(workspace: Path, filters: dict[str, Any]) -> GraphData:
             content = mf.read_text(encoding="utf-8", errors="replace")
         except OSError:
             continue
-        for id_ in extract_ids(content):
+        for id_ in sorted(extract_ids(content)):
             if id_ in g.nodes:
                 continue
             t = detect_type(id_)
@@ -197,7 +201,7 @@ def build_graph(workspace: Path, filters: dict[str, Any]) -> GraphData:
         for target, _anchor in parse_wikilinks(content):
             t = target.strip()
             if t in g.nodes:
-                for src in source_ids:
+                for src in sorted(source_ids):
                     if src == t:
                         continue
                     g.add_edge(Edge(from_=src, to=t, kind="link"))
@@ -303,7 +307,8 @@ const options = {{
     lesson: {{ color: '#95A5A6' }}, meta: {{ color: '#34495E' }},
     term: {{ color: '#7F8C8D' }}, domain: {{ color: '#1ABC9C' }},
     cluster: {{ color: '#9B59B6' }}, reflection: {{ color: '#BDC3C7' }},
-    audit: {{ color: '#C0392B' }}
+    audit: {{ color: '#C0392B' }}, insight: {{ color: '#F39C12' }},
+    insurance: {{ color: '#16A085' }}
   }}
 }};
 const network = new vis.Network(container, {{ nodes, edges }}, options);
