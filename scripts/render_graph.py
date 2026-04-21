@@ -67,6 +67,13 @@ NODE_COLORS = {
 }
 
 WIKILINK_RE = re.compile(r"\[\[([^\]\|#]+)(?:#([^\]\|]+))?(?:\|[^\]]+)?\]\]")
+HTML_COMMENT_RE = re.compile(r"<!--[\s\S]*?-->", re.MULTILINE)
+
+
+def strip_html_comments(text: str) -> str:
+    """Удаляет HTML-комментарии — шаблонные записи (`<!-- Шаблон: ### pat-001 ... -->`)
+    не должны создавать фантомные узлы графа."""
+    return HTML_COMMENT_RE.sub("", text)
 
 
 @dataclass
@@ -169,6 +176,7 @@ def build_graph(workspace: Path, filters: dict[str, Any]) -> GraphData:
             content = mf.read_text(encoding="utf-8", errors="replace")
         except OSError:
             continue
+        content = strip_html_comments(content)
         for id_ in sorted(extract_ids(content)):
             if id_ in g.nodes:
                 continue
@@ -191,6 +199,7 @@ def build_graph(workspace: Path, filters: dict[str, Any]) -> GraphData:
             content = mf.read_text(encoding="utf-8", errors="replace")
         except OSError:
             continue
+        content = strip_html_comments(content)
         # Из какого ID источника? Ищем ближайший ID выше каждого wikilink
         # Упрощение: берём все ID в файле и считаем их источниками
         # (адекватно для файлов-карточек).

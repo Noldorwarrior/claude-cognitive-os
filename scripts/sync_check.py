@@ -41,6 +41,30 @@ ID_RE = re.compile(r"\b(" + "|".join(ID_PREFIXES) + r")(\d{3})\b")
 FRONTMATTER_RE = re.compile(r"^---\n([\s\S]+?)\n---", re.MULTILINE)
 COUNTER_RE = re.compile(r"^-\s+([\w_]+):\s*(\d+)\s*$", re.MULTILINE)
 THRESHOLD_RE = re.compile(r"^\|\s*`?(\w+)`?\s*\|\s*(\S+)\s*\|", re.MULTILINE)
+HTML_COMMENT_RE = re.compile(r"<!--[\s\S]*?-->", re.MULTILINE)
+
+# Canonical map: ID-префикс (с дефисом) → имя счётчика в frontmatter/секции Counters.
+CARD_PREFIX_MAP = {
+    "pat-": "patterns",
+    "wm-": "mechanisms",
+    "ec-": "errors",
+    "km-": "knowledge_maps",
+    "md-": "meta_decisions",
+    "term-": "terms",
+    "ent-": "entities",
+    "proj-": "projects",
+    "lesson-": "lessons",
+    "sr-": "reflections",
+    "audit-": "audits",
+    "domain-": "domains",
+    "cluster-": "clusters",
+}
+
+
+def strip_html_comments(text: str) -> str:
+    """Удаляет многострочные HTML-комментарии, чтобы шаблонные записи
+    (`<!-- Шаблон записи: ### pat-001 — ... -->`) не попадали в счётчики."""
+    return HTML_COMMENT_RE.sub("", text)
 
 
 @dataclass
@@ -62,21 +86,71 @@ class SyncReport:
 
 
 def parse_frontmatter(text: str) -> tuple[dict | None, list[str]]:
-    """Возвращает (dict or None, list of parse errors)."""
+    """Возвращает (dict or None, list of parse errors).
+
+    Поддерживает YAML-lists:
+
+        key:
+          - item1
+          - item2
+
+    Такой блок превращается в `data[key] = ["item1", "item2"]`.
+    Остальные конструкции (простые `key: value`, mapping-подобные
+    `parent:` + `  child: value`) ведут себя как раньше — вложенные
+    ключи попадают на верхний уровень с префиксом отступа, снятым
+    через `strip`, что согласовано с текущим поведением
+    `thresholds` / `counters`.
+
+    Inline-комментарии. Контракт соответствует YAML 1.2 § 6.6:
+    комментарий начинается с `#` **после whitespace** (пробел или таб)
+    либо с начала строки. Парсер удаляет полностью закомментированные
+    строки, но НЕ срезает inline-комментарии внутри значений — ответственность
+    за их обработку лежит на consumer'е (см. `RESERVED_RANGE_RE`,
+    который поглощает хвост `\\s*(?:#.*)?$` сам).
+    """
     m = FRONTMATTER_RE.search(text)
     if not m:
         return None, []
     raw = m.group(1)
-    errors = []
-    data = {}
+    errors: list[str] = []
+    data: dict = {}
+    current_list_key: str | None = None
+
     for line in raw.splitlines():
-        if not line.strip() or line.strip().startswith("#"):
+        stripped = line.strip()
+        if not stripped or stripped.startswith("#"):
+            current_list_key = None
             continue
+
+        # Строка-элемент YAML-list: "  - value" (после ключа с пустым значением).
+        if (
+            current_list_key is not None
+            and line[:1] in (" ", "\t")
+            and stripped.startswith("- ")
+        ):
+            item = stripped[2:].strip()
+            if not isinstance(data.get(current_list_key), list):
+                data[current_list_key] = []
+            data[current_list_key].append(item)
+            continue
+
         if ":" not in line:
             errors.append(f"Строка без `:` — `{line[:60]}`")
+            current_list_key = None
             continue
+
         key, _, val = line.partition(":")
-        data[key.strip()] = val.strip()
+        key = key.strip()
+        val = val.strip()
+
+        if val == "":
+            # Ключ с пустым значением — возможное начало YAML-list или mapping.
+            current_list_key = key
+            data[key] = ""
+        else:
+            current_list_key = None
+            data[key] = val
+
     return data, errors
 
 
@@ -92,6 +166,10 @@ def count_ids(workspace: Path) -> tuple[dict[str, int], dict[str, list[int]], li
             text = mf.read_text(encoding="utf-8", errors="replace")
         except OSError:
             continue
+
+        # Удаляем HTML-комментарии, чтобы шаблонные ### pat-001 и т.п.,
+        # обёрнутые в `<!-- Шаблон записи: ... -->`, не попадали в счётчики.
+        text = strip_html_comments(text)
 
         # Только definitions (заголовки с ID), не все упоминания
         for line in text.splitlines():
@@ -118,40 +196,166 @@ def count_ids(workspace: Path) -> tuple[dict[str, int], dict[str, list[int]], li
     return count_by_prefix, numbers_by_prefix, duplicates
 
 
-def find_gaps(numbers_by_prefix: dict[str, list[int]], max_gap: int = 10) -> dict[str, list[int]]:
-    """Ищет пропуски в нумерации > max_gap."""
+# Грамматика reserved-range: `<prefix>-NNN..[<prefix>-]NNN` плюс
+# опциональный хвост `\s*#...` — любой whitespace и далее inline-комментарий
+# до конца строки. Хвост — часть самой грамматики, а не артефакт парсера:
+# это соответствует YAML 1.2 (§6.6), где комментарий начинается с `#`
+# после whitespace. Благодаря этому fallback-срез в `parse_reserved_ranges`
+# больше не нужен — regex принимает и `ent-019..ent-029`, и
+# `ent-019..ent-029  # зарезервировано под организации`.
+RESERVED_RANGE_RE = re.compile(
+    r"^("
+    + "|".join(p.rstrip("-") for p in ID_PREFIXES)
+    + r")-(\d{3})\.\.(?:(?:"
+    + "|".join(p.rstrip("-") for p in ID_PREFIXES)
+    + r")-)?(\d{3})\s*(?:#.*)?$"
+)
+
+
+def parse_reserved_ranges(workspace: Path) -> dict[str, set[int]]:
+    """Собирает зарезервированные ID-номера из frontmatter всех карточек.
+
+    Формат во frontmatter карточки (YAML-list):
+
+        reserved_ranges:
+          - ent-019..ent-029
+          - pat-050..pat-055
+          - ent-019..029                  # сокращённо: префикс наследуется
+          - ent-019..ent-029  # коммент   # inline-комментарий допустим
+
+    Правый конец можно писать сокращённо — `ent-019..029` — левый префикс
+    тогда наследуется. Inline-комментарий после элемента (YAML 1.2 § 6.6:
+    `whitespace + #`) допустим и съедается `RESERVED_RANGE_RE`. Возвращает
+    `dict[prefix, set[int]]` — множество зарезервированных номеров для
+    каждого ID-префикса.
+    """
+    reserved: dict[str, set[int]] = defaultdict(set)
+
+    for mf in workspace.rglob("*.md"):
+        if "archive" in mf.parts or "_generated" in mf.parts or ".backup" in mf.parts:
+            continue
+        try:
+            text = mf.read_text(encoding="utf-8", errors="replace")
+        except OSError:
+            continue
+        data, _ = parse_frontmatter(text)
+        if not data:
+            continue
+        ranges = data.get("reserved_ranges")
+        if not isinstance(ranges, list):
+            continue
+        for raw_range in ranges:
+            candidate = str(raw_range).strip()
+            m = RESERVED_RANGE_RE.match(candidate)
+            if not m:
+                continue
+            prefix = m.group(1) + "-"
+            start, end = int(m.group(2)), int(m.group(3))
+            if end < start:
+                start, end = end, start
+            for n in range(start, end + 1):
+                reserved[prefix].add(n)
+    return reserved
+
+
+def find_gaps(
+    numbers_by_prefix: dict[str, list[int]],
+    max_gap: int = 10,
+    reserved: dict[str, set[int]] | None = None,
+) -> dict[str, list[int]]:
+    """Ищет пропуски в нумерации > max_gap.
+
+    Если между соседними номерами полностью покрыто зарезервированными
+    (`reserved`), gap не репортуется.
+    """
+    if reserved is None:
+        reserved = {}
     gaps = {}
     for prefix, nums in numbers_by_prefix.items():
         if len(nums) < 2:
             continue
+        reserved_nums = reserved.get(prefix, set())
         prefix_gaps = []
         for i in range(1, len(nums)):
-            diff = nums[i] - nums[i - 1]
-            if diff > max_gap:
-                prefix_gaps.append((nums[i - 1], nums[i], diff))
+            a, b = nums[i - 1], nums[i]
+            diff = b - a
+            if diff <= max_gap:
+                continue
+            missing = set(range(a + 1, b)) - reserved_nums
+            if not missing:
+                # Вся щель покрыта reserved_ranges — не репортуем.
+                continue
+            prefix_gaps.append((a, b, diff))
         if prefix_gaps:
             gaps[prefix] = prefix_gaps
     return gaps
 
 
 def parse_declared_counters(workspace: Path) -> dict[str, int]:
-    """Парсит 00_index.md, секция counters."""
+    """Парсит 00_index.md, секция counters.
+
+    Если секции `## Counters` нет — fallback на frontmatter карточек
+    01–14: читает ключи `active_<plural>s` (active_patterns, active_mechanisms…)
+    и маппит их в canonical counter keys, совпадающие с card_prefix_map в
+    build_report. Это позволяет sync_check работать с воркспейсами, где
+    счётчики живут во frontmatter отдельных карточек, а не в 00_index.
+    """
     f = workspace / "00_index.md"
-    if not f.exists():
-        return {}
-    text = f.read_text(encoding="utf-8", errors="replace")
     counters = {}
 
-    # Ищем секцию counters
-    counters_section = re.search(
-        r"##\s*Counters[\s\S]+?(?=\n##\s|\Z)", text, re.IGNORECASE
-    )
-    if not counters_section:
-        return {}
+    if f.exists():
+        text = f.read_text(encoding="utf-8", errors="replace")
 
-    for m in COUNTER_RE.finditer(counters_section.group(0)):
-        key, val = m.groups()
-        counters[key] = int(val)
+        # Ищем секцию counters
+        counters_section = re.search(
+            r"##\s*Counters[\s\S]+?(?=\n##\s|\Z)", text, re.IGNORECASE
+        )
+        if counters_section:
+            for m in COUNTER_RE.finditer(counters_section.group(0)):
+                key, val = m.groups()
+                counters[key] = int(val)
+
+    if counters:
+        return counters
+
+    # Fallback: собираем `active_<name>` из frontmatter всех карточек
+    # (включая 00_index.md — там active_cards и т.п. тоже могут быть).
+    # Маппинг active_<plural> → canonical counter key.
+    active_key_map = {
+        "active_patterns": "patterns",
+        "active_mechanisms": "mechanisms",
+        "active_errors": "errors",
+        "active_knowledge_maps": "knowledge_maps",
+        "active_meta_decisions": "meta_decisions",
+        "active_terms": "terms",
+        "active_glossary_terms": "terms",  # alias, встречается в 00_index
+        "active_entities": "entities",
+        "active_projects": "projects",
+        "active_lessons": "lessons",
+        "active_reflections": "reflections",
+        "active_audits": "audits",
+        "active_domains": "domains",
+        "confidence_domains": "domains",  # alias в 00_index
+        "active_clusters": "clusters",
+        "cross_project_clusters": "clusters",  # alias в 00_index
+    }
+
+    for mf in workspace.rglob("*.md"):
+        if "archive" in mf.parts or "_generated" in mf.parts or ".backup" in mf.parts:
+            continue
+        try:
+            text = mf.read_text(encoding="utf-8", errors="replace")
+        except OSError:
+            continue
+        data, _ = parse_frontmatter(text)
+        if not data:
+            continue
+        for fm_key, counter_key in active_key_map.items():
+            if fm_key in data and counter_key not in counters:
+                try:
+                    counters[counter_key] = int(data[fm_key])
+                except (ValueError, TypeError):
+                    continue
 
     return counters
 
@@ -205,24 +409,9 @@ def build_report(workspace: Path) -> SyncReport:
     report.counters_declared = parse_declared_counters(workspace)
     report.duplicate_ids = duplicates
 
-    # Сравнение actual vs declared
+    # Сравнение actual vs declared через canonical CARD_PREFIX_MAP
     for key, actual in count_by_prefix.items():
-        card_prefix_map = {
-            "pat-": "patterns",
-            "wm-": "mechanisms",
-            "ec-": "errors",
-            "km-": "knowledge_maps",
-            "md-": "meta_decisions",
-            "term-": "terms",
-            "ent-": "entities",
-            "proj-": "projects",
-            "lesson-": "lessons",
-            "sr-": "reflections",
-            "audit-": "audits",
-            "domain-": "domains",
-            "cluster-": "clusters",
-        }
-        counter_key = card_prefix_map.get(key, key.rstrip("-"))
+        counter_key = CARD_PREFIX_MAP.get(key, key.rstrip("-"))
         declared = report.counters_declared.get(counter_key)
         if declared is None:
             report.issues.append(
@@ -253,8 +442,9 @@ def build_report(workspace: Path) -> SyncReport:
             )
         )
 
-    # 3. Пропуски
-    gaps = find_gaps(numbers_by_prefix)
+    # 3. Пропуски — с учётом зарезервированных диапазонов из frontmatter.
+    reserved = parse_reserved_ranges(workspace)
+    gaps = find_gaps(numbers_by_prefix, reserved=reserved)
     report.gaps = {k: [f"{a}→{b} (gap {d})" for a, b, d in v] for k, v in gaps.items()}
     for prefix, glist in gaps.items():
         for a, b, d in glist:
@@ -290,17 +480,30 @@ def render_report(report: SyncReport, workspace: Path) -> str:
         lines.append(f"| {sev} | {by_sev.get(sev, 0)} |")
     lines.append("")
 
-    # Counters
+    # Counters — одна строка на префикс, actual сведён с declared через
+    # CARD_PREFIX_MAP (иначе "pat-" и "patterns" рендерились бы отдельно).
     lines.append("## Counters")
     lines.append("")
-    lines.append("| Prefix | Actual | Declared |")
-    lines.append("|---|---|---|")
-    all_keys = set(report.counters_actual) | set(report.counters_declared)
-    for k in sorted(all_keys):
-        a = report.counters_actual.get(k, 0)
-        d = report.counters_declared.get(k, "—")
+    lines.append("| Prefix | Counter | Actual | Declared | Status |")
+    lines.append("|---|---|---|---|---|")
+
+    shown_counter_keys: set[str] = set()
+    for prefix in sorted(report.counters_actual):
+        counter_key = CARD_PREFIX_MAP.get(prefix, prefix.rstrip("-"))
+        a = report.counters_actual.get(prefix, 0)
+        d = report.counters_declared.get(counter_key, "—")
         status = "✅" if str(a) == str(d) else "⚠"
-        lines.append(f"| `{k}` | {a} | {d} | {status} |")
+        lines.append(f"| `{prefix}` | `{counter_key}` | {a} | {d} | {status} |")
+        shown_counter_keys.add(counter_key)
+
+    # Declared-ключи без соответствующего actual (пришли из 00_index, но
+    # в воркспейсе таких записей нет — полезно увидеть как отдельный блок)
+    orphan_declared = sorted(
+        k for k in report.counters_declared if k not in shown_counter_keys
+    )
+    for k in orphan_declared:
+        d = report.counters_declared.get(k, "—")
+        lines.append(f"| — | `{k}` | 0 | {d} | ⚠ |")
     lines.append("")
 
     # Issues detail
