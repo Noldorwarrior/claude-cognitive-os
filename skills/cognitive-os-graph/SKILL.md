@@ -33,7 +33,7 @@ Reference-скилл (не action). Объясняет:
 ## Унифицированные параметры
 
 Все скрипты принимают `--workspace <path>` — путь к папке воркспейса
-(cognitive-os/).
+(cognitive_os/).
 
 ## render_graph.py
 
@@ -41,19 +41,19 @@ Reference-скилл (не action). Объясняет:
 
 ```bash
 # Полный граф
-python3 render_graph.py --workspace /path/to/cognitive-os
+python3 render_graph.py --workspace /path/to/cognitive_os
 
 # Ego-граф одного проекта (соседи на расстоянии 2)
-python3 render_graph.py --workspace /path/to/cognitive-os --project proj-001
+python3 render_graph.py --workspace /path/to/cognitive_os --project proj-001
 
 # Только conflict-edges и их концы
-python3 render_graph.py --workspace /path/to/cognitive-os --conflict-only
+python3 render_graph.py --workspace /path/to/cognitive_os --conflict-only
 
 # Только mermaid (без HTML)
-python3 render_graph.py --workspace /path/to/cognitive-os --mermaid-only
+python3 render_graph.py --workspace /path/to/cognitive_os --mermaid-only
 
 # Только HTML
-python3 render_graph.py --workspace /path/to/cognitive-os --html-only
+python3 render_graph.py --workspace /path/to/cognitive_os --html-only
 ```
 
 ### Выход
@@ -93,19 +93,19 @@ python3 render_graph.py --workspace /path/to/cognitive-os --html-only
 
 ```bash
 # Полный rebuild
-python3 render_backlinks.py --workspace /path/to/cognitive-os
+python3 render_backlinks.py --workspace /path/to/cognitive_os
 
 # Только для одного ID
-python3 render_backlinks.py --workspace /path/to/cognitive-os --id pat-007
+python3 render_backlinks.py --workspace /path/to/cognitive_os --id pat-007
 
 # Только висячие ссылки
-python3 render_backlinks.py --workspace /path/to/cognitive-os --broken
+python3 render_backlinks.py --workspace /path/to/cognitive_os --broken
 
 # Только изолированные узлы (без входящих)
-python3 render_backlinks.py --workspace /path/to/cognitive-os --orphans
+python3 render_backlinks.py --workspace /path/to/cognitive_os --orphans
 
 # В stdout без записи файла
-python3 render_backlinks.py --workspace /path/to/cognitive-os --stdout
+python3 render_backlinks.py --workspace /path/to/cognitive_os --stdout
 ```
 
 ### Выход
@@ -126,8 +126,8 @@ python3 render_backlinks.py --workspace /path/to/cognitive-os --stdout
 получить текстовый граф.
 
 ```bash
-python3 render_mermaid.py --workspace /path/to/cognitive-os
-python3 render_mermaid.py --workspace /path/to/cognitive-os --stdout
+python3 render_mermaid.py --workspace /path/to/cognitive_os
+python3 render_mermaid.py --workspace /path/to/cognitive_os --stdout
 ```
 
 ## Производительность

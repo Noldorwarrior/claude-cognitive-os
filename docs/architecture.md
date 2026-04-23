@@ -44,7 +44,7 @@
           │                              │
           ▼                              ▼
 ┌─────────────────────────────────────────────────────────────────┐
-│  Когнитивный воркспейс (cognitive-os/)                          │
+│  Когнитивный воркспейс (cognitive_os/)                          │
 │                                                                  │
 │  00_index.md            08_knowledge_maps.md                    │
 │  01_user_profile.md     09_working_mechanisms.md                │
@@ -129,7 +129,8 @@ Python-скрипты на stdlib (argparse, re, dataclasses, json, pathlib).
 
 1. `[[init]]` — пользователь создаёт новый воркспейс.
 2. Создаются 15 карточек из шаблонов.
-3. Регистрация в `~/.claude/cognitive-os-workspaces.json`.
+3. Путь к воркспейсу экспортируется в `$CLAUDE_WORKSPACE` (скрипты и
+   хуки читают путь отсюда либо через `--workspace`).
 
 ### Ежедневная работа
 

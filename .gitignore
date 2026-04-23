@@ -33,3 +33,8 @@ dist/
 # Временные артефакты песочницы Cowork (не удаляются из-за mount-ограничений)
 test_rm.tmp
 test_rm.*.tmp
+
+# Сессионные/аудиторские артефакты (рабочие, не часть плагина)
+CONTEXT_HANDOFF.md
+SESSION_RESUME.md
+audit-v*/

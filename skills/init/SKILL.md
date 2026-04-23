@@ -2,7 +2,7 @@
 name: init
 description: >-
   Инициализация когнитивного воркспейса с нуля. Создаёт структуру
-  `cognitive-os/` (карточки 00-14, папки `projects/`, `archive/`,
+  `cognitive_os/` (карточки 00-14, папки `projects/`, `archive/`,
   `_generated/`, `docs/`) по шаблонам из `templates/`. Запускается командами
   «инициализируй воркспейс», «создай когнитивное хранилище», «init cognitive
   os», «развернуть когнитивную карту». Используется ОДИН РАЗ при первом
@@ -14,7 +14,7 @@ description: >-
 ## Назначение
 
 Создать структуру когнитивного воркспейса в папке, выбранной пользователем
-(`/Users/.../Documents/Claude/cognitive-os/` по умолчанию), развернув
+(`/Users/.../Documents/Claude/cognitive_os/` по умолчанию), развернув
 шаблоны карточек 00-14 из `${CLAUDE_PLUGIN_ROOT}/templates/`.
 
 ## Когда запускается
@@ -38,7 +38,7 @@ description: >-
 
 Спросить через `AskUserQuestion`:
 
-- **Путь воркспейса** (default: `<selected_folder>/cognitive-os/`).
+- **Путь воркспейса** (default: `<selected_folder>/cognitive_os/`).
 - **Язык** (default: ru; из user-preferences rule #2).
 - **Домены для калибровки** (multi-select из 8 заготовок в
   `11_confidence_scoring.md`).
@@ -47,14 +47,14 @@ description: >-
 ### 2. Проверка безопасности
 
 - Если папка существует и не пуста — **СТОП**, предложить выбор:
-  - Создать рядом (`cognitive-os-new/`).
+  - Создать рядом (`cognitive_os_new/`).
   - Запустить [[migrate]] в режиме update.
   - Отменить.
 
 ### 3. Создание структуры
 
 ```
-cognitive-os/
+cognitive_os/
 ├── CLAUDE.md            (из templates/CLAUDE.md — bootstrap-файл, загружается в начале каждой сессии)
 ├── 00_index.md          (из templates/00_index.md)
 ├── 01_user_profile.md   (из templates/01_user_profile.md)
@@ -95,19 +95,17 @@ cognitive-os/
 - `{{DATE}}` → текущая дата (`YYYY-MM-DD`).
 - Остальные плейсхолдеры остаются для заполнения по ходу работы.
 
-### 5. Регистрация воркспейса
+### 5. Экспорт пути воркспейса
 
-Записать путь в `~/.claude/cognitive-os-workspaces.json` для последующих
-обращений:
+Добавить в `~/.zshrc` (или `~/.bashrc`):
 
-```json
-{
-  "workspaces": [
-    {"path": "/Users/.../cognitive-os/", "created": "2026-04-20",
-     "language": "ru", "active": true}
-  ]
-}
+```bash
+export CLAUDE_WORKSPACE="/Users/.../cognitive_os"
 ```
+
+Скрипты плагина читают путь из `$CLAUDE_WORKSPACE` (fallback — аргумент
+`--workspace` у каждого CLI-скрипта). Этого достаточно для работы
+хуков, `sync_check`, `render_graph`, `render_backlinks`.
 
 ### 6. Валидация после создания
 
@@ -118,7 +116,7 @@ cognitive-os/
 ### 7. Отчёт пользователю
 
 ```
-Воркспейс создан: /Users/.../cognitive-os/
+Воркспейс создан: /Users/.../cognitive_os/
 Карточек развёрнуто: 15 (8 активных + 3 расширения + 4 служебные dormant).
 Порогов зафиксировано: pattern=3, pattern_window_days=30, ... (см. 00_index).
 Следующий шаг:
@@ -129,7 +127,7 @@ cognitive-os/
 ## Обсидиан-интеграция (опционально)
 
 Если пользователь выбрал «да»:
-- Создать `cognitive-os/.obsidian/` с базовым конфигом (темы, горячие
+- Создать `cognitive_os/.obsidian/` с базовым конфигом (темы, горячие
   клавиши, включённый `graph view`).
 - Указать на `examples/starter_workspace/.obsidian/` как референс.
 
@@ -145,7 +143,6 @@ frontmatter.
 | `инициализируй воркспейс` | Запустить init |
 | `init cognitive os` | Алиас |
 | `создай когнитивное хранилище` | Алиас |
-| `покажи существующие воркспейсы` | Список из `cognitive-os-workspaces.json` |
 
 ## Интеграции
 

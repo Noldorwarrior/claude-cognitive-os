@@ -3,19 +3,24 @@
 sync_check.py — проверка синхронизации когнитивного воркспейса.
 
 Проверяет:
-1. Пороги в `SKILL.md` (cognitive-os-core) соответствуют порогам в
-   карточках и в references/thresholds.md.
-2. `00_index.counters` совпадают с фактическими подсчётами записей.
-3. Frontmatter YAML валиден во всех карточках.
-4. Все wikilinks resolve (интеграция с render_backlinks).
-5. IDs уникальны (нет дубликатов).
-6. Нумерация IDs плотная (нет пропусков > 10).
+1. `00_index.counters` совпадают с фактическими подсчётами записей.
+2. IDs уникальны (нет дубликатов).
+3. Нумерация IDs плотная (нет пропусков > 10, с учётом reserved_ranges).
+4. Frontmatter YAML валиден во всех карточках.
+5. Все wikilinks resolve (через общий классификатор `link_classifier`;
+   висячие репортуются как severity=error).
+6. Пороги `references/thresholds.md` — чтение и отображение.
 
 Результат — `_generated/sync_report.md`. Если есть рассинхроны,
 action-скилл [[audit]] может создать `audit-NNN` типа `threshold_mismatch`.
 
+Для висячих wikilinks используется тот же модуль, что и
+`render_backlinks.py` — `scripts/link_classifier.py`. Оба инструмента
+видят одно и то же множество висячих; расхождения исключены
+конструктивно (single source of truth).
+
 Запуск:
-    python3 sync_check.py --workspace /path/to/cognitive-os
+    python3 sync_check.py --workspace /path/to/cognitive_os
     python3 sync_check.py --workspace . --report-only
     python3 sync_check.py --workspace . --strict  # exit 1 при находках
 """
@@ -32,6 +37,16 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 from lib.error_handling import safe_main  # noqa: E402
+from link_classifier import (  # noqa: E402
+    CARD_NAMES,
+    WIKILINK_RE,
+    build_carry_over_index,
+    build_memory_index,
+    classify_target,
+    find_default_memory_dir,
+    parse_target,
+    strip_backticked,
+)
 
 ID_PREFIXES = [
     "pat-", "wm-", "ec-", "km-", "md-", "term-", "ent-",
@@ -400,6 +415,98 @@ def validate_frontmatter_all(workspace: Path) -> list[SyncIssue]:
     return issues
 
 
+def _collect_vault_ids(
+    numbers_by_prefix: dict[str, list[int]], workspace: Path
+) -> set[str]:
+    """Собирает множество существующих vault-ID для классификатора.
+
+    Источник — результат ``count_ids`` (заголовки-определения). Имена
+    системных карточек (``00_index``, ``02_patterns``, …) добавляются
+    отдельно: для классификатора они — валидные vault-target'ы, но в
+    нумерации ID они не участвуют.
+
+    Функция намеренно расширяет ``classify_target``-совместимое множество
+    ещё и всеми ID, встретившимися в тексте (не только в заголовках).
+    Это нужно, чтобы ссылки вроде ``[[pat-050]]`` в 02_patterns.md,
+    указывающие на запись, определение которой физически лежит под
+    таким же заголовком, не считались dangling. ``count_ids`` уже делает
+    ровно это (сканирует весь текст), — просто используем его вывод.
+    """
+    ids: set[str] = set()
+    for prefix, nums in numbers_by_prefix.items():
+        base = prefix.rstrip("-")
+        for n in nums:
+            ids.add(f"{base}-{n:03d}")
+    # Системные карточки 00–14 — только если файл реально существует.
+    for name in CARD_NAMES:
+        if (workspace / f"{name}.md").exists():
+            ids.add(name)
+    return ids
+
+
+def check_dangling_links(
+    workspace: Path, vault_ids: set[str]
+) -> list[SyncIssue]:
+    """Ищет висячие wikilinks во всех карточках vault.
+
+    Делегирует классификацию в ``link_classifier.classify_target`` — тот
+    же код, который использует ``render_backlinks.py`` для генерации
+    backlinks.md. Общий классификатор гарантирует, что sync_check и
+    backlinks согласованы: если появилась новая висячая, её увидят оба
+    инструмента одновременно.
+
+    Что сканируется:
+      * все ``.md`` в ``workspace`` кроме ``archive/``, ``_generated/``,
+        ``.backup/``;
+      * в каждом файле — ``strip_backticked`` снимает fenced code, inline
+        backticks, escape-последовательности и HTML-комментарии; остаток
+        парсится ``WIKILINK_RE``.
+
+    Что репортуется (severity=error):
+      * каждый dangling с указанием файла, строки и target'а.
+
+    Carry-over и memory индексы строятся один раз — не за O(N×files).
+    """
+    issues: list[SyncIssue] = []
+    carry_over_index = build_carry_over_index(workspace)
+    memory_index = build_memory_index(find_default_memory_dir())
+
+    for mf in workspace.rglob("*.md"):
+        if any(
+            part in mf.parts
+            for part in ("archive", "_generated", ".backup")
+        ):
+            continue
+        try:
+            raw = mf.read_text(encoding="utf-8", errors="replace")
+        except OSError:
+            continue
+        cleaned = strip_backticked(raw)
+
+        for line_num, line in enumerate(cleaned.splitlines(), 1):
+            for m in WIKILINK_RE.finditer(line):
+                target, _anchor = parse_target(m.group(1))
+                if not target:
+                    continue
+                kind = classify_target(
+                    target, vault_ids, carry_over_index, memory_index
+                )
+                if kind == "dangling":
+                    try:
+                        rel = mf.relative_to(workspace).as_posix()
+                    except ValueError:
+                        rel = str(mf)
+                    issues.append(
+                        SyncIssue(
+                            severity="error",
+                            category="dangling_link",
+                            message=f"Висячая wikilink: [[{target}]]",
+                            location=f"{rel}:{line_num}",
+                        )
+                    )
+    return issues
+
+
 def build_report(workspace: Path) -> SyncReport:
     report = SyncReport()
 
@@ -459,7 +566,14 @@ def build_report(workspace: Path) -> SyncReport:
     # 4. Frontmatter
     report.issues.extend(validate_frontmatter_all(workspace))
 
-    # 5. Thresholds — сверка references/thresholds.md vs 00_index (если есть)
+    # 5. Висячие wikilinks — через общий классификатор (link_classifier).
+    # Используем numbers_by_prefix из шага 1: он покрывает все реально
+    # существующие ID, включая те, что определены не заголовком (редкий
+    # случай, но классификатор не должен их ошибочно считать висячими).
+    vault_ids = _collect_vault_ids(numbers_by_prefix, workspace)
+    report.issues.extend(check_dangling_links(workspace, vault_ids))
+
+    # 6. Thresholds — сверка references/thresholds.md vs 00_index (если есть)
     report.thresholds = parse_thresholds_references(workspace)
 
     return report

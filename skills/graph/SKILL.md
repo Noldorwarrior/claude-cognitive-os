@@ -34,6 +34,27 @@ HTML-граф + статический Mermaid. Визуализирует:
 - Воркспейс пустой (нет записей) → показать placeholder «граф пуст».
 - Hook сработал слишком часто (debounce блокирует) → пропустить.
 
+## Исполнитель
+
+Главный скрипт скилла — `scripts/render_graph.py`. Вызывается из двух
+контекстов:
+
+| Контекст | Команда | Таймаут |
+|---|---|---|
+| Post-write hook | `render_graph.py --workspace ${CLAUDE_WORKSPACE:-.} --if-changed` | 5 сек |
+| Явный запрос | `render_graph.py --workspace <path> [--project=<id>] [--domain=<d>] [--conflict-only] [--mermaid-only] [--offline]` | без лимита |
+
+Ключевые флаги:
+- `--if-changed` — пропуск рендера, если нет новых изменений с прошлого прохода (экономит CPU в hook-режиме).
+- `--offline` — inline vis-network вместо CDN (для сред без интернета).
+- `--project`, `--domain`, `--conflict-only`, `--mermaid-only` — описаны в секции «Режимы» ниже.
+
+Вспомогательные скрипты скилла:
+- `scripts/paginate_projects.py` — под-графы по доменам при > 500 узлах (см. «Производительность»).
+- `scripts/render_mermaid.py` — standalone mermaid-рендер (используется скриптом render_graph при `--mermaid-only`).
+
+Полный алгоритм — ниже в «Workflow». Исходники: `~/Documents/Claude/dev/claude-cognitive-os/scripts/render_graph.py`.
+
 ## Workflow
 
 ### 1. Сбор узлов (nodes)
@@ -150,7 +171,7 @@ graph LR
 Граф перестроен.
 Узлов: 127 (12 проектов, 31 сущность, 7 паттернов, ...).
 Рёбер: 204 (в т.ч. 2 conflict-edges — см. [[14_audit_log#audit-005]]).
-Открыть: computer:///Users/.../cognitive-os/_generated/graph.html
+Открыть: computer:///Users/.../cognitive_os/_generated/graph.html
 ```
 
 ## Режимы

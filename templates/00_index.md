@@ -14,7 +14,7 @@ active_entities: 0
 active_projects: 0
 active_meta_decisions: 0
 confidence_domains: 0
-total_cards: 11
+total_cards: 15
 last_audit: null
 last_calibration: null
 last_archive: null

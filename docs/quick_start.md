@@ -23,7 +23,7 @@ claude plugin install claude-cognitive-os
 > init cognitive os в /path/to/my-workspace
 
 Скилл [[init]] задаст несколько вопросов:
-- Путь к воркспейсу (по умолчанию `~/Documents/cognitive-os/`).
+- Путь к воркспейсу (по умолчанию `~/Documents/cognitive_os/`).
 - Имя воркспейса (для UI).
 - Опциональная Obsidian-интеграция (создать `.obsidian/`).
 

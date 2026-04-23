@@ -10,7 +10,7 @@ calibrate_thresholds.py — анализ данных калибровки и в
 презентует пользователю и применяет по одобрению.
 
 Запуск:
-    python3 calibrate_thresholds.py --workspace /path/to/cognitive-os
+    python3 calibrate_thresholds.py --workspace /path/to/cognitive_os
     python3 calibrate_thresholds.py --workspace . --domain youth_policy
     python3 calibrate_thresholds.py --workspace . --window-days 90
 """

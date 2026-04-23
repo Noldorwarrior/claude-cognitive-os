@@ -5,6 +5,40 @@
 Формат: [Keep a Changelog](https://keepachangelog.com/ru/1.1.0/).
 Версионирование: [SemVer](https://semver.org/lang/ru/).
 
+## [1.3.8] — 2026-04-23
+
+### Added
+
+- **`scripts/link_classifier.py`** — классификатор wikilinks на 6 классов (`vault`, `plugin`, `agent`, `carry_over`, `memory`, `dangling`). Используется `render_backlinks.py` и `audit_contradictions.py` для отличения «висячих ссылок» от намеренных ссылок на артефакты за пределами vault (плагин, agent-memory, carry-over между сессиями). Снимает ложноположительные `dangling_link` на ссылки типа `[[claude-cognitive-os:patterns]]` или `[[agent-memory:feedback_xxx]]`, которые раньше шумели в audit-отчётах.
+- **Pre-flight проверка в скилле `reflect`** — перед запуском self-reflection цикла проверяется: (1) наличие `11_confidence_scoring.md`, (2) корректность YAML frontmatter, (3) отсутствие открытых `audit-NNN` типа `sync_drift`. При провале — понятное сообщение пользователю вместо тихого падения в середине рефлексии. Рационал: рефлексия пишет в несколько карточек одновременно; падение после первой записи оставляло vault в частично-обновлённом состоянии.
+- **`scripts/install_hooks.sh` + `scripts/project_post_commit.sh`** — git post-commit хук для проектов в `~/Documents/Claude/Projects/*`: после коммита триггерит запись в `03_projects_registry.md` через chain-wrapper (не перезаписывает существующие post-commit). Устанавливается вручную командой `bash scripts/install_hooks.sh <project_path>` из Terminal пользователя (не из sandbox — подробности в feedback-memory «Git-хуки ставим из Terminal пользователя, не из sandbox»).
+- **`docs/link-conventions.md`** — единый источник истины по 6 классам wikilinks, ALLOWED_AGENTS allow-list (6 имён: cog-verifier, cog-archivist, cog-detector, init, verification, consolidate-memory) и обязательному namespace-префиксу для всех skills плагина (`[[claude-cognitive-os:migrate]]`, не `[[migrate]]`). Добавлен процесс расширения allow-list: PR в link_classifier.py + реестр в этом документе + rationale в CHANGELOG. До 1.3.8 правила жили только в комментариях кода, и новые авторы carry-over-планов регулярно создавали false-positive dangling — этот документ снимает класс ошибок на уровне конвенции.
+- **`skills/graph/SKILL.md`: секция «Исполнитель»** — явное указание главного скрипта `scripts/render_graph.py`, его вызовов из hook-контекста (`--if-changed`, таймаут 5 сек) и явного контекста (флаги `--project`, `--domain`, `--conflict-only`, `--mermaid-only`, `--offline`), а также вспомогательных `paginate_projects.py` и `render_mermaid.py`. До фикса SKILL.md был единственным скиллом, где не было упоминания своего главного исполнителя — 9 из 10 остальных скиллов следовали паттерну «скилл описывает что → скрипт делает как», graph выбивался. Pre-release doc-drift найден в Этапе 2 Фазы 0 аудита v1.3.8.
+
+### Fixed
+
+- **`docs/migration_guide.md`: удалено обещание несуществующего `scripts/migrate_workspace.py`**. В v1.0.1–1.3.7 «Вариант B: неинтерактивный» рекомендовал команду `python3 scripts/migrate_workspace.py --from /old/path --to /new/path [--dry-run]`, но сам скрипт никогда не существовал (аналогичный wishful-thinking паттерн как у удалённого `cognitive-os-workspaces.json`). Новый пользователь, выполняющий миграцию v1.0.1 → v1.3.x по неинтерактивному сценарию, получал `python3: can't open file 'scripts/migrate_workspace.py'` на самой первой команде. В 1.3.8 секция переписана: статус явно помечен как «запланирован к релизу 1.3.9», единственный рабочий путь — **Вариант А (интерактивный диалог через скилл `[[claude-cognitive-os:migrate]]`)** + ручной рецепт шагов, уже описанный в гайде.
+- **`docs/migration_guide.md` шаг 5: `templates/<card>.template.md` → `templates/<card>.md`**. Гайд описывал несуществующую конвенцию имени шаблонов с суффиксом `.template.md` — реально в репозитории используется простой паттерн `templates/<card>.md` (15 файлов: `00_index.md` … `14_audit_log.md`). Новый пользователь, следующий гайду, не находил шаблоны по описанному пути. Найдено М13 (декомпозиция) Этапа 3 П13 Аудитора.
+- **2 false-positive dangling ссылки в `projects/proj-014/carry-over/task-07-closure-gate-plan.md`**: `[[migrate]]` и `[[reflect]]` → `[[claude-cognitive-os:migrate]]` и `[[claude-cognitive-os:reflect]]`. Skill-имена плагина требуют полного namespace (см. `docs/link-conventions.md` § 4); без него `link_classifier` корректно маркирует их как dangling. На 2026-04-22 sync_report показывал ровно эти 2 ошибки — после правок `sync_report.md` = `error 0`, `backlinks.md` = `dangling 0/0`.
+- **`MANUAL_ALL_PROJECTS.md` frontmatter: `version: 1.0 (для плагина v1.3.7)` → `version: 1.1 (для плагина v1.3.8)`** + добавлено поле `updated: 2026-04-23`. Мануал содержательно валиден для 1.3.8 (релиз doc-only), но явная привязка к 1.3.7 вводила в заблуждение. Найдено М18 (триангуляция) Этапа 3 П13 Аудитора.
+- **`templates/00_index.md`: `total_cards: 11` → `total_cards: 15`**. Legacy-значение унаследовано от cognitive-os skill v1.0.1 (там было 11 активных карт); в плагине v1.3 — 15 карточек 00-14. До фикса каждый свежий vault, созданный через `init`, стартовал с рассогласованным счётчиком (sync_check репортил mismatch с первой минуты). После фикса `declared=actual=15` сразу после init.
+
+### Changed
+
+- **Унификация имени vault-папки: `cognitive-os/` → `cognitive_os/`** во всех docs, skills и templates. Имя плагина (`claude-cognitive-os`) и имена скиллов (`cognitive-os-core`, `cognitive-os-graph`, `cognitive-os-calibration`) — остаются с дефисом, это namespace плагина и не путь vault. Граница явная: дефис = пакет/скилл, подчёркивание = vault-папка. Метаморфический инвариант: 0 вхождений `cognitive-os/` как путь vault, 29 вхождений `cognitive_os/`, 0 CamelCase. Обратная совместимость: пользователи с существующим vault'ом по пути `cognitive-os/` продолжают работать — скрипты читают путь из `$CLAUDE_WORKSPACE` / `--workspace`, а не зашивают имя.
+
+### Removed
+
+- **Удалены упоминания `~/.claude/cognitive-os-workspaces.json`** из docs и скиллов (6 мест: `docs/architecture.md` § Bootstrap/Init workflow, `docs/migration_guide.md` FAQ «Хуки не срабатывают», `examples/starter_workspace/README.md` § Быстрый старт, `skills/init/SKILL.md` § шаг 5 «Регистрация воркспейса», `skills/init/SKILL.md` таблица команд строка «покажи существующие воркспейсы», `skills/status/SKILL.md` § 1 «Обнаружение воркспейса»). Git archaeology показала: все 6 упоминаний появились в одном стартовом коммите v1.3.3 (20.04.2026) как wishful-thinking в документации; реализации никогда не было (0 упоминаний в `scripts/`, `hooks/`, `agents/`), ни один релиз 1.3.4-1.3.7 не трогал эту тему. Single-vault через `$CLAUDE_WORKSPACE` покрывает все реальные сценарии пользователя; реестр проектов внутри vault обеспечивается `03_projects_registry.md`. Удаление — не breaking, т.к. fantom-реестра никогда не существовало на диске.
+
+### Chore
+
+- **Удалены артефакты из dev/**: `.DS_Store` (macOS Finder metadata) и `test_rm.tmp` (остаток от ручной проверки). Оба — нулевой функциональный вес, попали в git через недосмотр.
+
+### Rationale
+
+Релиз 1.3.8 закрывает три независимых хвоста одновременно, потому что по отдельности каждый меньше порога отдельного patch-релиза, но суммарно они устраняют три разных класса шума: (1) ложноположительные `dangling_link` в audit (новый `link_classifier.py`), (2) рассогласование счётчиков сразу после init (`total_cards` фикс), (3) зомби-документация про never-implemented feature (workspaces.json removal). Pre-flight в reflect и git post-commit хуки — подготовка инфраструктуры: оба не меняют поведение существующих vault'ов, но добавляют точки безопасности перед следующими релизами. Обратная совместимость 100%: все изменения либо строго additive (link_classifier, Pre-flight, git hooks), либо правят документацию/шаблоны, не затрагивая API скриптов.
+
 ## [1.3.7] — 2026-04-21
 
 ### Changed

@@ -60,7 +60,7 @@ migration_date: 2026-04-20
 собственный страхует от проблем.
 
 ```bash
-cp -r /path/to/cognitive-os /path/to/cognitive-os-backup-pre-v1.3
+cp -r /path/to/cognitive_os /path/to/cognitive-os-backup-pre-v1.3
 ```
 
 ### 2. Проверка v1.0.1 целостности
@@ -82,7 +82,7 @@ claude plugin install claude-cognitive-os
 
 В Claude:
 
-> мигрируй воркспейс из /path/to/cognitive-os v1.0.1 в v1.3
+> мигрируй воркспейс из /path/to/cognitive_os v1.0.1 в v1.3
 
 Скилл [[migrate]] пройдёт диалог:
 1. Подтверждение пути и бэкапа.
@@ -91,17 +91,18 @@ claude plugin install claude-cognitive-os
 
 ### Вариант B: неинтерактивный
 
-```bash
-# Dry-run для превью
-python3 scripts/migrate_workspace.py \
-  --from /old/path \
-  --to /new/path \
-  --dry-run
+> **Статус (v1.3.8):** автоматический скрипт `scripts/migrate_workspace.py`
+> **запланирован к релизу 1.3.9**. На 1.3.8 доступен только **Вариант А
+> (интерактивный)** — см. выше. Ручной рецепт шагов приведён в секции
+> «Что делает миграция (шаг за шагом)» ниже: его можно выполнить
+> вручную (cp, правка frontmatter, пересчёт счётчиков) или через
+> интерактивный диалог со скиллом [[claude-cognitive-os:migrate]].
 
-# Применение
-python3 scripts/migrate_workspace.py \
-  --from /old/path \
-  --to /new/path
+Плановая CLI-команда после релиза 1.3.9:
+
+```bash
+# [НЕ РЕАЛИЗОВАНО В v1.3.8 — оставлено для справки]
+python3 scripts/migrate_workspace.py --from /old/path --to /new/path [--dry-run]
 ```
 
 ## Что делает миграция (шаг за шагом)
@@ -133,7 +134,8 @@ IDs типа `calibration-001` переоформляются в `pat-calibratio
 ### Шаг 5: Перенос 16_templates → templates/
 
 Шаблоны извлекаются из `16_templates.md` и раскладываются в
-`templates/<card>.template.md` по соответствию.
+`templates/<card>.md` по соответствию (имя = имя карточки без префикса
+`.template`).
 
 ### Шаг 6: Перенос 17_integration → references/
 
@@ -178,7 +180,7 @@ IDs типа `calibration-001` переоформляются в `pat-calibratio
 rm -rf /new/path
 cp -r /old/path /new/path
 # Или из вашего бэкапа:
-cp -r /path/to/cognitive-os-backup-pre-v1.3 /path/to/cognitive-os
+cp -r /path/to/cognitive-os-backup-pre-v1.3 /path/to/cognitive_os
 ```
 
 Migration создаёт `audit-NNN` типа `migration` — по нему можно
@@ -207,17 +209,16 @@ python3 scripts/fix_wikilinks.py --workspace /new/path \
 
 ### 3. «Хуки не срабатывают»
 
-После миграции обновите `~/.claude/cognitive-os-workspaces.json` — путь
-мог измениться:
+После миграции убедитесь, что `$CLAUDE_WORKSPACE` в `~/.zshrc`
+(или `~/.bashrc`) указывает на новый путь, и перезапустите shell:
 
-```json
-{
-  "active": "/new/path",
-  "workspaces": [
-    {"path": "/new/path", "name": "My Cognitive OS", "version": "1.3"}
-  ]
-}
+```bash
+export CLAUDE_WORKSPACE="/new/path"
 ```
+
+Хуки и скрипты читают путь из `$CLAUDE_WORKSPACE` либо получают его
+явно через аргумент `--workspace /new/path`. Если переменная не
+выставлена, скрипты падают с понятной ошибкой.
 
 ### 4. «Слишком много висячих ссылок»
 

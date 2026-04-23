@@ -7,7 +7,7 @@ render_mermaid.py — быстрый статический рендер mermaid
 плейсхолдер в _generated/).
 
 Запуск:
-    python3 render_mermaid.py --workspace /path/to/cognitive-os
+    python3 render_mermaid.py --workspace /path/to/cognitive_os
 """
 
 from __future__ import annotations

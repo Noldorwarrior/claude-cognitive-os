@@ -18,17 +18,9 @@ cp -r examples/starter_workspace ~/my-cognitive-workspace
 # Откройте в Obsidian как vault:
 # File → Open vault → выбрать ~/my-cognitive-workspace
 
-# Зарегистрируйте в плагине
-echo '{
-  "active": "/Users/you/my-cognitive-workspace",
-  "workspaces": [
-    {
-      "path": "/Users/you/my-cognitive-workspace",
-      "name": "My Cognitive OS",
-      "version": "1.3"
-    }
-  ]
-}' > ~/.claude/cognitive-os-workspaces.json
+# Экспортируйте путь для скриптов и хуков
+echo 'export CLAUDE_WORKSPACE="$HOME/my-cognitive-workspace"' >> ~/.zshrc
+exec zsh
 ```
 
 ## Что внутри уже заполнено

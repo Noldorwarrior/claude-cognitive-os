@@ -22,7 +22,7 @@
 
 ## Обновление
 
-При выходе новой версии плагина — установить новый `.plugin` файл поверх предыдущего. Cowork/Claude Code заменит исходники плагина в `/var/folders/.../claude-hostloop-plugins/<id>/`, воркспейсы (`cognitive-os/`) не трогаются. Актуальная версия — в `.claude-plugin/plugin.json`, разбор изменений — в [CHANGELOG.md](./CHANGELOG.md).
+При выходе новой версии плагина — установить новый `.plugin` файл поверх предыдущего. Cowork/Claude Code заменит исходники плагина в `/var/folders/.../claude-hostloop-plugins/<id>/`, воркспейсы (`cognitive_os/`) не трогаются. Актуальная версия — в `.claude-plugin/plugin.json`, разбор изменений — в [CHANGELOG.md](./CHANGELOG.md).
 
 Миграция между мажорными версиями (например, v1 → v2): запустить `migrate` в action-скиллах. Для минорных и патчей миграция не требуется.
 

@@ -25,7 +25,7 @@ color: green
 ## Входные параметры
 
 ```yaml
-workspace: /path/to/cognitive-os
+workspace: /path/to/cognitive_os
 mode: manual | auto
 targets:
   - id: pat-003

@@ -54,7 +54,7 @@ color: yellow
 ## Входные параметры
 
 ```yaml
-workspace: /path/to/cognitive-os
+workspace: /path/to/cognitive_os
 preset: P5 | P12 | P13 | P14 | M1 | ...
 target:
   type: audit_record | migration_result | archival_result | pattern | ...
